@@ -1,0 +1,74 @@
+/* * {
+    box-sizing: border-box;
+}
+
+/* Create four equal columns that floats next to each other */
+/* .column {
+    float: left;
+    width: 25%;
+    padding: 10px;
+	border:1px;
+} */
+
+/*.row{
+	border:1px;
+} */
+
+/* Clear floats after the columns */
+/* .row:after {
+    content: "";
+    display: table;
+    clear: both;
+} */
+
+div.tooltip {
+    position: absolute;
+    padding: 10px;
+    font: 12px sans-serif;
+    background: lightsteelblue;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+rect.selection {
+    stroke          : gray;
+    stroke-dasharray: 4px;
+    stroke-opacity  : 0.5;
+    fill            : transparent;
+}
+
+/* .chart rect {
+	fill: steelblue;
+} */
+
+.chart rect:hover {
+	fill: #9edae5;
+}
+
+.chart .rectM {
+	stroke: green;
+	stroke-width: 1;
+	fill: green;
+	fill-opacity: .2;
+}
+
+.chart .rectM:hover {
+	fill: green;
+	fill-opacity: .5;
+}
+
+.chart text {
+	font: 10px sans-serif;
+}
+
+.chart .title {
+	font: 15px sans-serif;
+}
+
+.axis path,
+.axis line {
+	fill: none;
+	stroke: #000;
+	shape-rendering: crispEdges;
+}

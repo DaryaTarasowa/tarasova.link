@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html>
+  	<head>
+	    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+	    <title>Drug Report</title>
+	    <link rel="stylesheet" type="text/css" href="bubble.css" />
+		<link rel="stylesheet" type="text/css" href="semantic.css"/>
+		<link rel="stylesheet" type="text/css" href="parallel.css"/>
+
+  	</head>
+  	<body>
+			<div class="ui padded divided grid">
+				<div class="ui row centered">
+					<div class="twelve wide column centered">
+						<h2 class="ui header centered">Drug recommendation</h2>
+						<div class="ui row">
+							<div class="ui twelve wide column">
+								<div class="ui top attached tabular menu">
+								  	<div class="active item" id="tab1" onclick="changeTabTo(this.id)">Bubble Chart</div>
+									<div class="item" id="tab2" onclick="changeTabTo(this.id)">Parallel Coordinates</div>
+									<div class="item" id="tab3" onclick="changeTabTo(this.id)">Box plots</div>
+								</div>
+								<div class="ui bottom attached tab segment" id="tab2_content">
+									<div class="ui padded grid">
+
+										<div class="ui row">
+											<div class="ui column sixteen wide">
+												<div id="chart">
+												    <canvas id="background"></canvas>
+												    <canvas id="foreground"></canvas>
+												    <canvas id="highlight"></canvas>
+												    <svg class='parallel'></svg>
+												</div>
+											</div>
+										</div>
+										<div class="ui row">
+											<div class="ui column sixteen wide">
+												<div class="ui segment">
+											      	<label>Drug Name</label><input type="text" id="search" placeholder="Search for any drug" style="margin-left: 20px;"></input></h3>
+											      	<p id="food-list">
+											      	</p>
+												</div>
+											</div>
+									    </div>
+									</div>
+								</div>
+								<div class="ui bottom attached tab segment" id="tab3_content">
+									<div class="ui padded grid">
+										<div class="ui row">
+											<div class="ui column sixteen wide">
+												<div id="box_plot"></div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="ui bottom attached tab segment active" id="tab1_content">
+									<div class="ui padded grid">
+										<div class="ui row">
+											<div class="ui four wide column">
+												<label>Select data for X:</label>
+												<select id="x_axis" onChange='updateChart()'></select>
+											</div>
+											<div class="ui four wide column">
+												<label>Select data for Y:</label>
+												<select id="y_axis" onChange='updateChart()'></select>
+											</div>
+											<div class="ui four wide column">
+												<label>Select data for size:</label>
+												<select id="size" onChange='updateChart()'></select>
+											</div>
+											<div class="ui four wide column">
+												<label>Select data for color:</label>
+												<select id="color" onChange='updateChart()'></select>
+											</div>
+										</div>
+										<div class="ui row">
+											<div class="ui twelve wide column">
+												<div class="ui segment">
+													<div class="chart" id="bubble"></div>
+												</div>
+											</div>
+											<div class="ui four wide column">
+												<div class="ui input">
+													<input type="text" id="search_bubble" onkeyup="searchFunction()" placeholder="Search for drugs..">
+												</div>
+												<div class="ui segment" id="food-list_bubble"></div>
+											</div>
+
+										</div>
+
+									</div>
+								</div>
+
+
+
+							</div>
+
+						</div>
+
+					</div>
+					<div class="four wide column grey centered">
+						<div class="ui four wide grey column">
+							<button onClick='showFilters()'><h4>Add filters</h4></button>
+							<div class = 'ui segment' id='filters'>
+								<a class="ui right corner label" onClick='hideFilters()'>
+	  								<i class="icon">x</i>
+								</a>
+							</div>
+							<div  id="svg_dist"></div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+
+
+
+  	</body>
+  	<script src="https://d3js.org/d3.v2.min.js"></script>
+  	<script src="http://underscorejs.org/underscore.js"></script>
+  	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	<script src="semantic.js"></script>
+  	<script src="parallel.js"></script>
+  	<script src="bubble_graph.js"></script>
+	<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+	<!-- <script src="radial.js"></script> -->
+  	<script>
+
+
+		let filter = {};
+		function showFilters(){
+			$('#filters').show();
+		}
+		function hideFilters(){
+			$('#filters').hide();
+		}
+		function resetSelection(tab){
+			if (tab === 'tab1'){
+				document.getElementById('search_bubble').value='';
+				updateChart();
+			}
+		}
+		function changeTabTo(id){
+			if (id ==='tab1'){
+				$('#tab1').attr('class', "active item" );
+				$('#tab1_content').attr('class', "ui bottom attached tab segment active" );
+				$('#tab2').attr('class', 'item');
+				$('#tab2_content').attr('class', "ui bottom attached tab segment" );
+				$('#tab3').attr('class', 'item');
+				$('#tab3_content').attr('class', "ui bottom attached tab segment" );
+				resetSelection('tab1');
+			}else if(id==='tab2'){
+				$('#tab2').attr('class', "active item" );
+				$('#tab2_content').attr('class', "ui bottom attached tab segment active" );
+				$('#tab1').attr('class', 'item');
+				$('#tab1_content').attr('class', "ui bottom attached tab segment" );
+				$('#tab3').attr('class', 'item');
+				$('#tab3_content').attr('class', "ui bottom attached tab segment" );
+			}else{
+				$('#tab3').attr('class', "active item" );
+				$('#tab3_content').attr('class', "ui bottom attached tab segment active" );
+				$('#tab2').attr('class', 'item');
+				$('#tab2_content').attr('class', "ui bottom attached tab segment" );
+				$('#tab1').attr('class', 'item');
+				$('#tab1_content').attr('class', "ui bottom attached tab segment" );
+			}
+
+		}
+	  	function searchFunction() {
+	    // Declare variables
+		    var input, filter, p, li, a, i;
+		    input = document.getElementById('search_bubble');
+		    filter = input.value.toUpperCase();
+		    p = document.getElementById("food-list_bubble");
+		    li = p.getElementsByClassName('li');
+
+		    // Loop through all list items, and hide those who don't match the search query
+		    for (i = 0; i < li.length; i++) {
+		        if (li[i].innerHTML.toUpperCase().indexOf(filter) > -1) {
+		            li[i].style.display = "";
+		        } else {
+		            li[i].style.display = "none";
+		        }
+		    }
+			updateChart();
+		}
+	</script>
+	<script>
+
+		function update(){
+			updateChart();
+			updateFilter();
+		}
+
+		$(document).ready(function() {
+			loadSelectors(updateChart);
+			loadFilters();
+			updateFilter();
+			loadBoxPlots();
+
+
+		})
+
+		let selected_bars = ['M.W.'];
+
+		function loadBoxPlots(){
+			d3.csv('drug-2.csv', function(raw_data) {
+				let data_r = [];
+				$.each(raw_data[0], function (i, item) {
+					let x_axis = i;
+					data_r[i] = raw_data.map((d) => {
+						c = parseInt(d[x_axis]);
+						return c;
+					});
+				});
+
+				//console.log(data_r);
+				let data = [];
+
+
+				for (var i in selected_bars){
+					let prop = selected_bars[i];
+					data.push({'y':data_r[prop], type: 'box', name: prop, boxpoints: false});
+				}
+
+				Plotly.newPlot('box_plot', data);
+			});
+		}
+
+		function loadFilters(){
+			d3.csv('drug-2.csv', function(raw_data) {
+				let p = 0;
+				let checked = '';
+				$.each(raw_data[0], function (i, item) {
+					if (i === 'M.W.') {
+						checked = 'checked';
+					}else{
+						checked = '';
+					}
+
+					let div = '<div class="ui checkbox"><input class="filter_cb" onchange="updateFilter(this.id)" name="' + i
+					 +'" id="' + i + '" type="checkbox" ' + checked + '><label>' + i + '</label></div><br/>';
+					if (i && i!='GENERIC_NAME'){
+
+					// let div = '<div class="ui checkbox"><input class="filter_cb" onchange="updateFilter(this.id)" name="' + i
+					//  +'" id="' + i + '" type="checkbox"><label>' + i + '</label></div><br/>';
+					// if (i && i!='GENERIC_NAME'){
+						$('#filters').append(div)
+
+						var formatCount = d3.format(",.0f");
+
+						var margin = 30;
+						var width = 300;
+						var height = 100;
+
+						let x_axis = i;
+
+						let max = d3.max(raw_data, (d) => { return parseInt(d[x_axis]); })
+						let min = d3.min(raw_data, (d) => { return parseInt(d[x_axis]); })
+						data_r = raw_data.map((d) => {
+							c = parseInt(d[x_axis]);
+							return c;
+						});
+
+						var x = d3.scale.linear()
+						      .domain([min, max])
+						      .range([0, width]);
+
+						// Generate a histogram using twenty uniformly-spaced bins.
+						var data = d3.layout.histogram()
+						    .bins(x.ticks(20))
+						    (data_r);
+
+						var yMax = d3.max(data, function(d){return d.length});
+						var yMin = d3.min(data, function(d){return d.length});
+						var colorScale = d3.scale.linear()
+						            .domain([yMin, yMax])
+						            .range([d3.rgb(color).brighter(), d3.rgb(color).darker()]);
+
+						var y = d3.scale.linear()
+						    .domain([0, yMax])
+						    .range([height, 0]);
+
+						var xAxis = d3.svg.axis()
+						    .scale(x)
+						    .orient("bottom");
+
+						var svg_div = d3.select("#svg_dist")
+							.append('div')
+							.attr("id", 'svg_bar' + p)
+							.attr('class', 'ui segment')
+							.attr("name", 'svg_bar' + i)
+
+						if (i !== 'M.W.'){
+							svg_div.style('display', 'none');
+						}
+
+						var svg = d3.select("#svg_bar" + p)
+							.append('svg')
+							.attr('class', 'chart')
+							.attr("width", width + margin + margin)
+							.attr("height", height + margin + margin);
+
+						var bar = svg.selectAll(".bar")
+						    .data(data)
+						  .enter().append("g")
+						    .attr("class", "bar")
+						    .attr("transform", function(d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
+
+						bar.append("rect")
+						    .attr("x", 1)
+						    .attr("width", (x(data[0].dx) - x(0)) - 1)
+						    .attr("height", function(d) { return height - y(d.y); })
+						    .attr("fill", '#1f77b4')
+							.on('click', function(d) {
+
+								if (d3.select(this).attr('fill') === 'turquoise'){
+									d3.select(this).attr('fill', '#1f77b4');
+									remove_filter(x_axis, d.x, d.x+d.dx);
+								}else{
+									d3.select(this).attr('fill', 'turquoise');
+									apply_filter(x_axis, d.x, d.x+d.dx);
+								};
+							})
+							;
+
+						svg.append("g")
+						    .attr("class", "x axis")
+						    .attr("transform", "translate(0," + height + ")")
+						    .call(xAxis);
+
+						svg.append("text")
+							.attr("transform",
+									"translate(" + (width/2) + " ," +
+												   (height + margin + margin) + ")")
+							.style("text-anchor", "right")
+							.style("font-weight", "bold")
+							.text(function(d) { return x_axis });
+						p++;
+					}
+				});
+			});
+		}
+
+
+
+		function loadSelectors(callback){
+			d3.csv('drug-2.csv', function(raw_data) {
+				$.each(raw_data[0], function (i, item) {
+					if (i && i!='GENERIC_NAME'){
+						$('#x_axis').append($('<option>', {
+							value: i,
+							text : i
+						}));
+
+						$('#y_axis').append($('<option>', {
+							value: i,
+							text : i
+						}));
+					}
+					if(i && i!='GENERIC_NAME' && i!='ALOGPS_LOGP' && i!='LOGS' && i!='PKA'){
+
+						$('#size').append($('<option>', {
+							value: i,
+							text : i
+						}));
+						$('#color').append($('<option>', {
+							value: i,
+							text : i
+						}));
+					}
+				});
+				$('#x_axis').val('M.W.');
+				$('#y_axis').val('POLARIZABILITY');
+				$('#size').val('#RINGS');
+				$('#color').val('#RINGS');
+				callback();
+			});
+		}
+
+
+
+		function apply_filter(axis, min, max){
+			if (!filter[axis]) {
+				filter[axis] = [];
+			}
+			filter[axis].push({'min': min ,'max': max});
+			updateChart();
+		}
+
+		function remove_filter(axis, min, max){
+
+			let f_axis = filter[axis];
+			let axis_ar = f_axis.filter(function(el) {
+    			return (el.min !== min)});
+			filter[axis] = axis_ar;
+			updateChart();
+		}
+
+		function updateFilter(id){
+			let div = $("div[name='svg_bar" + id + "']");
+			let div_id = '#' + div.attr('id');
+			if (div){
+				if (div.css('display') === 'none'){
+					div.show();
+					//if (id !== 'M.W.'){
+						selected_bars.push(id);
+						loadBoxPlots();
+					//}
+				}else{
+					if (filter[id]){
+						filter[id] = null;
+						updateChart();
+						let bar = d3.select(div_id).selectAll(".bar").selectAll("rect").attr('fill', '#1f77b4');
+					}
+					div.hide();
+					//if (id !== 'M.W.'){
+						selected_bars = selected_bars.filter((d) => d != id);
+						loadBoxPlots();
+					//}
+				}
+			}
+		}
+
+		function updateChart(options = {}){
+			let filter_obj = filter;
+			let x_axis = $('#x_axis').find(":selected").text();
+			let y_axis = $('#y_axis').find(":selected").text();
+			let size = $('#size').find(":selected").text();
+			let color = $('#color').find(":selected").text();
+
+			let tooltip = d3.select("body").append("div")
+			.attr("class", "tooltip")
+			.style("opacity", 0);
+
+			//let zoom = $('zoom').value();
+			d3.csv('drug-2.csv', function(raw_data) {
+		    	//let data = raw_data; //here you can do what you want with the data
+				let chart = bubbleChart().width(600).height(400);
+				let margin = 60;
+				let width = chart.width();
+				let height = chart.height();
+
+				let data = raw_data.map((d) => {
+					d.x = d[x_axis]; //molecular weight
+					d.y = d[y_axis];
+					d.size = d[size];
+					d.c = d[color];
+					return d;
+				})
+				let labelX = x_axis;
+				var labelY = y_axis;
+				d3.select("#main_svg").remove();
+
+
+				let minY = options.minY || d3.min(data, (d) => { return parseInt(d.y); });
+				let maxY = options.maxY || d3.max(data, (d) => { return parseInt(d.y); });
+
+				const minX = options.minX || d3.min(data, (d) => { return parseInt(d.x); });
+				const maxX = options.maxX || d3.max(data, (d) => { return parseInt(d.x); });
+				const filter = options.filter || null;
+
+				const nonNegativeYAxis = minY >= 0 && maxY >= 0;
+				const positiveAndNegativeYAxis = minY < 0 && maxY > 0;
+
+				const nonNegativeXAxis = minX >= 0 && maxX >= 0;
+				const positiveAndNegativeXAxis = minX < 0 && maxX > 0;
+
+				let yScaleDomain, xAxisPosition, xScaleDomain, yAxisPosition;
+				yScaleDomain = [minY, maxY];
+				xScaleDomain = [minX, maxX];
+
+				let x = d3.scale.linear()
+				.domain(xScaleDomain)
+				.range([0, width]);
+
+				let y = d3.scale.linear()
+				.domain(yScaleDomain)
+				.range([height, 0])
+
+				let scale = d3.scale.sqrt()
+				.domain([d3.min(data, function (d) { return parseInt(d.size); }), d3.max(data, function (d) { return parseInt(d.size); })])
+				.range([1, 20]);
+
+				let opacity = d3.scale.sqrt()
+				.domain([d3.min(data, function (d) { return parseInt(d.size); }), d3.max(data, function (d) { return parseInt(d.size); })])
+				.range([1, .5]);
+
+				let color_scale = d3.scale.quantize()
+				.domain([d3.min(data, function (d) { return parseInt(d.c); }), d3.max(data, function (d) { return parseInt(d.c); })])
+				.range(['#ffffcc', '#c7e9b4', '#7fcdbb', '#41b6c4', '#1d91c0', '#225ea8', '#0c2c84']);
+
+				var xAxis = d3.svg.axis().scale(x).orient("bottom")
+				var yAxis = d3.svg.axis().scale(y).orient("left")
+
+				let svg = d3.select('#bubble')
+				.append('svg')
+				.attr("id", 'main_svg')
+				.attr('class', 'chart')
+				.attr("width", width + margin + margin)
+				.attr("height", height + margin + margin)
+				// .on('wheel', function (e) {
+				// 	d3.event.preventDefault();
+				// 	tooltip.style("opacity", 0);
+  				// 	var mouseX = x.invert(d3.mouse(this)[0] - margin);
+  				// 	let mouseY = y.invert(d3.mouse(this)[1] - margin);
+				// 	let moveX =  (mouseX - (maxX-minX)/2)/25;
+				// 	let moveY =  ((maxY-minY)/2 - mouseY)/25;
+                //
+				// 	let stepY = d3.event.deltaY < 0 ? -(maxY-minY)/5 :(maxY-minY)/5;
+				// 	let stepX = d3.event.deltaY < 0 ? -(maxX-minX)/5 :(maxX-minX)/5;
+            	// 	let newMinY = minY - stepY - moveY;
+				// 	let newMaxY = maxY + stepY - moveY;
+				// 	let newMinX = minX - stepX + moveX;
+				// 	let newMaxX = maxX + stepX + moveX;
+				// 		// console.log(minX, moveX ,newMinX);
+				// 		// console.log(maxX, moveX ,newMaxX);
+				// 		// console.log(minY, moveY ,newMinY);
+				// 		// console.log(maxY, moveY ,newMaxY);
+				// 	updateChart({minY: newMinY, maxY: newMaxY, minX:newMinX, maxX: newMaxX});
+				// })
+				.on( "mousedown", function() {
+				    var p = d3.mouse( this);
+
+				    svg.append( "rect")
+				    .attr({
+				        rx      : 6,
+				        ry      : 6,
+				        class   : "selection",
+				        x       : p[0] - margin,
+				        y       : p[1] - margin,
+				        width   : 0,
+				        height  : 0
+				    })
+				})
+				.on( "mousemove", function() {
+				    var s = svg.select( "rect.selection");
+
+				    if( !s.attr('moveStop')) {
+				        var p = d3.mouse( this),
+				            d = {
+				                x       : parseInt( s.attr( "x"), 10),
+				                y       : parseInt( s.attr( "y"), 10),
+				                width   : parseInt( s.attr( "width"), 10),
+				                height  : parseInt( s.attr( "height"), 10)
+				            };
+				            move = {
+				                x : p[0] - margin - d.x,
+				                y : p[1] - margin - d.y
+				            }
+				       // ;
+
+				        if( move.x < 1 ) {
+				            d.x = p[0] - margin;
+				            d.width -= move.x;
+				        } else {
+				            d.width = move.x;
+				        }
+
+				        if( move.y < 1 ) {
+				            d.y = p[1] - margin;
+				            d.height -= move.y;
+				        } else {
+				            d.height = move.y;
+				        }
+
+				        s.attr( d);
+
+				        //     // deselect all temporary selected state objects
+				        // d3.selectAll( 'g.state.selection.selected').classed( "selected", false);
+                        //
+				        // d3.selectAll( 'g.state >circle.inner').each( function( state_data, i) {
+				        //     if(
+				        //         !d3.select( this).classed( "selected") &&
+				        //             // inner circle inside selection frame
+				        //         state_data.x-radius>=d.x && state_data.x+radius<=d.x+d.width &&
+				        //         state_data.y-radius>=d.y && state_data.y+radius<=d.y+d.height
+				        //     ) {
+                        //
+				        //         d3.select( this.parentNode)
+				        //         .classed( "selection", true)
+				        //         .classed( "selected", true);
+				        //     }
+				        // });
+				    }
+				})
+				.on( "mouseup", function() {
+
+					rect = svg.selectAll("rect.selection");
+					rect.attr('moveStop', true);
+					console.log(rect);
+					var mouseX = x.invert(rect.attr('x'));
+  					let mouseY = y.invert(rect.attr('y'));
+					let rectHeight = y.invert(height - rect.attr('height'));
+					let rectWidth = x.invert(rect.attr('width'));
+					var mousedY = y.invert(rect.attr('y') - rect.attr('height'));
+					let options = {'minX': mouseX, 'minY':mouseY - mousedY + mouseY, 'maxX':mouseX + rectWidth, 'maxY': mouseY }; //minX minY maxX maxY
+				       // remove selection frame
+				    svg.selectAll( "rect.selection").remove();
+					updateChart(options);
+				})
+				.on( "mouseout", function() {
+				    // if( d3.event.relatedTarget.tagName=='HTML') {
+				    //         // remove selection frame
+				    //     svg.selectAll( "rect.selection").remove();
+                    //
+				    //         // remove temporary selection marker class
+				    //     d3.selectAll( 'g.state.selection').classed( "selection", false);
+				    // }
+				})
+				.append("g")
+				.attr("transform", "translate(" + margin + "," + margin + ")");
+
+				var imgs = svg.selectAll("img").data([0]);
+                imgs.enter()
+                .append("svg:image")
+                .attr("xlink:href", "./gradient.jpg")
+                .attr("x", width - 0.5 * margin)
+                .attr("y", -margin/2 - 10)
+                .attr("width", "80")
+                .attr("height", "40");
+
+				var imgs = svg.selectAll("img").data([0]);
+                imgs.enter()
+                .append("svg:image")
+                .attr("xlink:href", "./size.jpg")
+                .attr("x", width - 0.5 * margin)
+                .attr("y", -margin - 5)
+                .attr("width", "80")
+                .attr("height", "40");
+
+				svg.append("text")
+				.attr('x', width - margin*2)
+				.attr('y', -margin/1.5)
+				.text(size + ' (' + d3.min(data, function (d) { return parseInt(d.size); }) + '-' + d3.max(data, function (d) { return parseInt(d.size); }) + ')')
+
+				svg.append("text")
+				.attr('x', width - margin*2)
+				.attr('y', -margin/4)
+				.text(color + ' (' + d3.min(data, function (d) { return parseInt(d.c); }) + '-' + d3.max(data, function (d) { return parseInt(d.c); }) + ')')
+
+				svg.append("g")
+				.attr("class", "y axis")
+				.call(yAxis)
+
+				svg.append("text")
+			      .attr("transform", "rotate(-90)")
+			      .attr("y", 0 - margin)
+			      .attr("x",0 - (height / 2))
+			      .attr("dy", "1em")
+			      .style("text-anchor", "middle")
+				  .style("font-weight", "bold")
+			      .text(labelY);
+
+				// x axis and label
+				svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(xAxis);
+
+				svg.append("text")
+			      .attr("transform",
+			            "translate(" + (width/2) + " ," +
+			                           (height + margin) + ")")
+			      .style("text-anchor", "middle")
+				  .style("font-weight", "bold")
+			      .text(labelX);
+
+				let new_data = data.filter((d) => d.x>=minX
+													&& d.y >= minY
+													&& d.x <= maxX
+													&& d.y <= maxY
+												);
+
+
+				for (var propt in filter_obj) {
+					let i,data_chunk = [];
+					if(filter_obj[propt]){
+						for (i = 0; i < filter_obj[propt].length; i++ ){
+							let data_to_join = new_data.filter((d) =>
+								parseInt(d[propt]) >= parseInt(filter_obj[propt][i].min) &&
+								parseInt(d[propt]) <= parseInt(filter_obj[propt][i].max)
+							)
+							data_chunk = data_chunk.concat(data_to_join);
+						}
+						if((data_chunk).length){new_data = data_chunk;}
+					}
+
+				}
+				if ($("#search_bubble").val()){
+					pattern = new RegExp($("#search_bubble").val(),"i")
+					new_data = new_data.filter((d) => {
+						return pattern.exec(d.GENERIC_NAME);
+					})
+				}
+				data_table(new_data, opacity);
+
+
+				svg.selectAll("circle")
+				.data(new_data)
+				.enter()
+				.insert("circle")
+				.attr("cx", function (d) { return x(parseInt(d.x)); })
+				.attr("cy", function (d) { return y(parseInt(d.y)); })
+				.attr('name', function (d) {return d.GENERIC_NAME})
+				.attr("opacity", function (d) { return opacity(parseInt(d.size)); })
+				.style("stroke", "black")
+				.attr("r", function (d) { return scale(parseInt(d.size)); })
+				.style("fill", function (d) { return color_scale(parseInt(d.c)); })
+				// .append("svg:title")
+   				// 	.text(function(d) { return d.GENERIC_NAME + ': ' + d.x; })
+				.on('mouseover', function (d, i) {
+					tooltip.style("opacity", .9);
+            			tooltip	.html(
+							"<h4><center>" + d.GENERIC_NAME + "</center></h4>" +
+							'<b>M.W.:</b> ' + d['M.W.'] + '</br>' +
+							'<b>ALOGPS_LOGP</b>' + ': ' + d['ALOGPS_LOGP'] + '</br>' +
+							'<b>#DONOR</b>' + ': ' + d['#DONOR'] + '</br>' +
+							'<b>#ACCEPTOR</b>' + ': ' + d['#ACCEPTOR'] + '</br>' +
+							'<b>#RINGS</b>' + ': ' + d['#RINGS'] + '</br>' +
+							'<b>#ROTATABLE_BOND</b>' + ': ' + d['#ROTATABLE_BOND'] + '</br>' +
+							'<b>POLAR_SURFACE_AREA</b>' + ': ' + d['POLAR_SURFACE_AREA'] + '</br>' +
+							'<b>REFRACTIVITY</b>' + ': ' + d['REFRACTIVITY'] + '</br>' +
+							'<b>LOGS</b>' + ': ' + d['LOGS'] + '</br>' +
+							'<b>POLARIZABILITY</b>' + ': ' + d['POLARIZABILITY'] + '</br>' +
+							'<b>PKA</b>' + ': ' + d['PKA']
+						)
+                		.style("left", (d3.event.pageX) + "px")
+                		.style("top", (d3.event.pageY - 28) + "px");
+					fade(d.GENERIC_NAME, .05);
+				})
+				.on('mouseout', function (d, i) {
+					tooltip.style("opacity", 0);
+					fadeOut(opacity);
+				})
+
+
+
+		});
+
+		function data_table(data, opacity){
+			$('#food-list_bubble').empty();
+			$.each(data, (i, item) => {
+				// let p =
+				// p.click(fade(item.GENERIC_NAME, 0.5));
+				$('#food-list_bubble').append("<p class='li' name='" + item.GENERIC_NAME + "' style='cursor:pointer'>" + item.GENERIC_NAME + "</p>");
+			});
+			$('#food-list_bubble p').map(function(){
+				$(this).click(() => {
+					fadeOut(opacity);
+					fade($(this).attr('name'), 0.05);
+				});
+			});
+			//     //console.log($(this));
+			//   }).get().join(',');
+			// children.get().map(
+			// 	function(d) {
+			// 		console.log(d);
+			// 		console.log(d.attr('name'));
+			// 	}
+			// );
+			//console.log(children.length);
+			// for(let i = 0; i < children.length; i++) {
+			// 	//console.log(i);
+			// 	//console.log(i);
+			// 	console.log(children[i].attr('name'));
+			//     children[i].click( function(){
+			//         alert('you clicked ' + i);
+			//     });
+			// }
+			// $("#food-list_bubble p").on( "click", function() {
+			// 	console.log($( this ).attr('name'));
+			// 	fade( $( this ).attr('name'), 0.5);
+			// });
+
+			// $.each($('#food-list_bubble').children('p'), (i, item) => {
+			// 	//console.log(item);
+			// 	//console.log(p.attr('name'));
+			// 	item.on('click', fade('123', 0.5));
+			// })
+
+		}
+
+		function fade(name, opacity) {
+			let svg = d3.select('#bubble');
+			svg.selectAll("circle")
+			.filter(function (d) {
+				return d.GENERIC_NAME != name;
+			}).style("opacity", opacity);
+		}
+
+		function fadeOut(opacity) {
+			let svg = d3.select('#bubble');
+			svg.selectAll("circle").style("opacity", function (d) { opacity(parseInt(d.size)); });
+		}
+	}
+
+	function search(selection,str) {
+	  	pattern = new RegExp(str,"i")
+	  	return _(selection).filter(function(d) { return pattern.exec(d.GENERIC_NAME); });
+	}
+
+	</script>
+
+
+
+</html>
